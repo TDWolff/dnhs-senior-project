@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Presentation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; overflow: hidden; }
+        canvas { display: block; }
+
+        #ui {
+            position: fixed;
+            bottom: 32px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            color: #fff;
+            font-family: sans-serif;
+            user-select: none;
+        }
+
+        #slide-counter {
+            font-size: 14px;
+            opacity: 0.7;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .nav-btn {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff;
+            padding: 8px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background 0.15s;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.3); }
+        .nav-btn:disabled { opacity: 0.2; cursor: default; }
+
+        #loading {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-family: sans-serif;
+            background: #000;
+            gap: 12px;
+        }
+        #loading p { opacity: 0.5; font-size: 13px; }
+
+        #no-model {
+            position: fixed;
+            inset: 0;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-family: sans-serif;
+            background: #111;
+            gap: 10px;
+            text-align: center;
+            padding: 40px;
+        }
+        #no-model code {
+            background: rgba(255,255,255,0.1);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="loading">
+    <span>Loading...</span>
+    <p>Drop your .glb into <code>static/models/presentation.glb</code></p>
+</div>
+
+<div id="no-model">
+    <h2>No model loaded</h2>
+    <p>Export your Blender scene as a <code>.glb</code> and place it at:</p>
+    <code>static/models/presentation.glb</code>
+    <p style="margin-top:8px; opacity:0.5">Make sure "Export NLA Strips" is checked in Blender's export options.</p>
+</div>
+
+<div id="ui" style="display:none">
+    <button class="nav-btn" id="btn-prev">&#8592;</button>
+    <span id="slide-counter">1 / 1</span>
+    <button class="nav-btn" id="btn-next">&#8594;</button>
+</div>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const MODEL_URL = '/static/models/presentation.glb';
+
+// --- Scene setup ---
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111111);
+
+// Fallback camera used only if the GLB has no camera
+let camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 1.5, 5);
+
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+dirLight.position.set(5, 10, 5);
+scene.add(dirLight);
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// --- Animation state ---
+let mixer = null;
+let clips = [];
+let currentIndex = 0;
+let currentAction = null;
+
+const loadingEl = document.getElementById('loading');
+const noModelEl = document.getElementById('no-model');
+const uiEl = document.getElementById('ui');
+const counter = document.getElementById('slide-counter');
+const btnPrev = document.getElementById('btn-prev');
+const btnNext = document.getElementById('btn-next');
+
+function updateUI() {
+    counter.textContent = `${currentIndex + 1} / ${clips.length}`;
+    btnPrev.disabled = currentIndex === 0;
+    btnNext.disabled = currentIndex === clips.length - 1;
+}
+
+function playClip(index) {
+    if (!mixer || clips.length === 0) return;
+    if (currentAction) currentAction.stop();
+
+    currentAction = mixer.clipAction(clips[index]);
+    currentAction.reset();
+    currentAction.clampWhenFinished = true;
+    currentAction.loop = THREE.LoopOnce;
+    currentAction.play();
+
+    currentIndex = index;
+    updateUI();
+}
+
+function goNext() {
+    if (currentIndex < clips.length - 1) playClip(currentIndex + 1);
+}
+
+function goPrev() {
+    if (currentIndex > 0) playClip(currentIndex - 1);
+}
+
+// --- Input ---
+document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); goNext(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev(); }
+});
+
+renderer.domElement.addEventListener('click', goNext);
+btnNext.addEventListener('click', e => { e.stopPropagation(); goNext(); });
+btnPrev.addEventListener('click', e => { e.stopPropagation(); goPrev(); });
+
+// --- Load model ---
+const loader = new GLTFLoader();
+loader.load(
+    MODEL_URL,
+    (gltf) => {
+        scene.add(gltf.scene);
+
+        // Use the Blender camera if one was exported, otherwise keep the fallback
+        const glbCamera = gltf.cameras && gltf.cameras[0];
+        if (glbCamera) {
+            camera = glbCamera;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+        }
+
+        // Animate the whole scene root so camera animations from Blender are driven
+        mixer = new THREE.AnimationMixer(gltf.scene);
+
+        // Sort clips so they play in the order you named them in Blender
+        clips = [...gltf.animations].sort((a, b) => a.name.localeCompare(b.name));
+
+        loadingEl.style.display = 'none';
+
+        if (clips.length === 0) {
+            noModelEl.style.display = 'flex';
+            noModelEl.querySelector('h2').textContent = 'No animations found';
+        } else {
+            uiEl.style.display = 'flex';
+            playClip(0);
+        }
+    },
+    undefined,
+    () => {
+        loadingEl.style.display = 'none';
+        noModelEl.style.display = 'flex';
+    }
+);
+
+// --- Render loop ---
+const clock = new THREE.Clock();
+function animate() {
+    requestAnimationFrame(animate);
+    if (mixer) mixer.update(clock.getDelta());
+    renderer.render(scene, camera);
+}
+animate();
+</script>
+
+</body>
+</html>
