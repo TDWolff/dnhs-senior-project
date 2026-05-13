@@ -75,6 +75,18 @@
             border-radius: 4px;
             font-size: 14px;
         }
+
+        #slide-video {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, calc(-50% + 8px));
+            width: 60%;
+            max-height: 80vh;
+            border-radius: 8px;
+            display: none;
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
@@ -90,6 +102,8 @@
     <code>static/models/presentation.glb</code>
     <p style="margin-top:8px; opacity:0.5">Make sure "Export NLA Strips" is checked in Blender's export options.</p>
 </div>
+
+<video id="slide-video" src="/static/slide11.MP4" playsinline></video>
 
 <div id="ui" style="display:none">
     <button class="nav-btn" id="btn-prev">&#8592;</button>
@@ -157,6 +171,9 @@ const uiEl = document.getElementById('ui');
 const counter = document.getElementById('slide-counter');
 const btnPrev = document.getElementById('btn-prev');
 const btnNext = document.getElementById('btn-next');
+const slideVideo = document.getElementById('slide-video');
+
+const VIDEO_SLIDE = 10; // 0-based index of slide 11
 
 function updateUI() {
     counter.textContent = `${currentIndex + 1} / ${clips.length}`;
@@ -166,6 +183,13 @@ function updateUI() {
 
 function playClip(index) {
     if (!mixer || clips.length === 0) return;
+
+    // Hide video when leaving the video slide
+    if (currentIndex === VIDEO_SLIDE) {
+        slideVideo.pause();
+        slideVideo.style.display = 'none';
+    }
+
     if (currentAction) currentAction.stop();
 
     currentAction = mixer.clipAction(clips[index]);
@@ -177,6 +201,7 @@ function playClip(index) {
     currentIndex = index;
     updateUI();
 }
+
 
 function goNext() {
     if (currentIndex < clips.length - 1) playClip(currentIndex + 1);
@@ -213,6 +238,15 @@ loader.load(
 
         // Animate the whole scene root so camera animations from Blender are driven
         mixer = new THREE.AnimationMixer(gltf.scene);
+
+        // After the camera animation finishes on the video slide, show the video
+        mixer.addEventListener('finished', () => {
+            if (currentIndex === VIDEO_SLIDE) {
+                slideVideo.currentTime = 0;
+                slideVideo.style.display = 'block';
+                slideVideo.play();
+            }
+        });
 
         // Sort clips so they play in the order you named them in Blender
         clips = [...gltf.animations].sort((a, b) => a.name.localeCompare(b.name));
