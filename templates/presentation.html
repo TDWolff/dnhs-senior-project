@@ -41,6 +41,23 @@
         .nav-btn:hover { background: rgba(255,255,255,0.3); }
         .nav-btn:disabled { opacity: 0.2; cursor: default; }
 
+        #btn-fullscreen {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.15s;
+            display: none;
+            z-index: 20;
+        }
+        #btn-fullscreen:hover { background: rgba(255,255,255,0.3); }
+
         #loading {
             position: fixed;
             inset: 0;
@@ -102,6 +119,8 @@
     <code>static/models/presentation.glb</code>
     <p style="margin-top:8px; opacity:0.5">Make sure "Export NLA Strips" is checked in Blender's export options.</p>
 </div>
+
+<button id="btn-fullscreen" title="Fullscreen (F)">&#x26F6;</button>
 
 <video id="slide-video" src="/static/slide11.MP4" playsinline></video>
 
@@ -172,6 +191,7 @@ const counter = document.getElementById('slide-counter');
 const btnPrev = document.getElementById('btn-prev');
 const btnNext = document.getElementById('btn-next');
 const slideVideo = document.getElementById('slide-video');
+const btnFullscreen = document.getElementById('btn-fullscreen');
 
 const VIDEO_SLIDE = 10; // 0-based index of slide 11
 
@@ -211,10 +231,26 @@ function goPrev() {
     if (currentIndex > 0) playClip(currentIndex - 1);
 }
 
+// --- Fullscreen ---
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+    } else {
+        document.exitFullscreen();
+    }
+}
+
+btnFullscreen.addEventListener('click', toggleFullscreen);
+
+document.addEventListener('fullscreenchange', () => {
+    btnFullscreen.textContent = document.fullscreenElement ? '✖' : '⛶';
+});
+
 // --- Input ---
 document.addEventListener('keydown', e => {
     if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); goNext(); }
     if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev(); }
+    if (e.key === 'f' || e.key === 'F') toggleFullscreen();
 });
 
 renderer.domElement.addEventListener('click', goNext);
@@ -258,6 +294,7 @@ loader.load(
             noModelEl.querySelector('h2').textContent = 'No animations found';
         } else {
             uiEl.style.display = 'flex';
+            btnFullscreen.style.display = 'block';
             playClip(0);
         }
     },
