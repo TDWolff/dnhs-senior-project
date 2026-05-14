@@ -317,6 +317,10 @@ function animate() {
     renderer.render(scene, camera);
 }
 animate();
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/sw.js');
+}
 </script>
 
 </body>
