@@ -122,7 +122,7 @@
 
 <button id="btn-fullscreen" title="Fullscreen (F)">&#x26F6;</button>
 
-<video id="slide-video" src="/static/slide11.MP4" playsinline></video>
+<video id="slide-video" src="/static/slide11.MP4" playsinline preload="auto"></video>
 
 <div id="ui" style="display:none">
     <button class="nav-btn" id="btn-prev">&#8592;</button>
@@ -287,6 +287,9 @@ loader.load(
         // Sort clips so they play in the order you named them in Blender
         clips = [...gltf.animations].sort((a, b) => a.name.localeCompare(b.name));
 
+        // Pre-warm all clip actions so first playback of each slide is instant
+        clips.forEach(clip => mixer.clipAction(clip));
+
         loadingEl.style.display = 'none';
 
         if (clips.length === 0) {
@@ -309,7 +312,8 @@ loader.load(
 const clock = new THREE.Clock();
 function animate() {
     requestAnimationFrame(animate);
-    if (mixer) mixer.update(clock.getDelta());
+    // Clamp delta so a tab switch or stall doesn't cause a huge jump
+    if (mixer) mixer.update(Math.min(clock.getDelta(), 0.1));
     renderer.render(scene, camera);
 }
 animate();

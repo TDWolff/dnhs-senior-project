@@ -23,9 +23,15 @@ log = logging.getLogger(__name__)
 # --- App ---
 app = Flask(__name__)
 
+CACHEABLE_EXTENSIONS = {'.glb', '.exr', '.mp4', '.MP4'}
+
 @app.after_request
 def log_request(response):
     log.info("%s %s %s — %d", request.method, request.path, request.remote_addr, response.status_code)
+
+    if any(request.path.endswith(ext) for ext in CACHEABLE_EXTENSIONS):
+        response.headers['Cache-Control'] = 'public, max-age=86400'
+
     return response
 
 @app.route("/")
