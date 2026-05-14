@@ -149,16 +149,31 @@ const MODEL_URL = '/static/models/presentation.glb';
 // --- Scene setup ---
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
-renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.domElement.style.position = 'fixed';
 document.body.appendChild(renderer.domElement);
+
+const ASPECT = 16 / 9;
+
+// Fallback camera used only if the GLB has no camera
+let camera = new THREE.PerspectiveCamera(45, ASPECT, 0.1, 1000);
+camera.position.set(0, 1.5, 5);
+
+function fitCanvas() {
+    const sw = window.innerWidth, sh = window.innerHeight;
+    let w, h;
+    if (sw / sh > ASPECT) { h = sh; w = h * ASPECT; }
+    else                   { w = sw; h = w / ASPECT; }
+    renderer.setSize(w, h);
+    renderer.domElement.style.left = `${(sw - w) / 2}px`;
+    renderer.domElement.style.top  = `${(sh - h) / 2}px`;
+    camera.aspect = ASPECT;
+    camera.updateProjectionMatrix();
+}
+fitCanvas();
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
-
-// Fallback camera used only if the GLB has no camera
-let camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 1.5, 5);
 
 scene.add(new THREE.AmbientLight(0xffffff, 1.2));
 const dirLight = new THREE.DirectionalLight(0xffffff, 2);
@@ -172,11 +187,8 @@ new EXRLoader().load('/static/worldMap.exr', (texture) => {
     scene.backgroundBlurriness = 0.04;
 });
 
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+window.addEventListener('resize', fitCanvas);
+document.addEventListener('fullscreenchange', fitCanvas);
 
 // --- Animation state ---
 let mixer = null;
